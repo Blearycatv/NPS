@@ -12,6 +12,9 @@ def get_NIC():
     nic_dic = get_windows_if_list()
     nic_key = nic_dic[0].keys()
 
+    for i in nic_dic:
+        print(i['description'])
+
     print(nic_key)
 
 
