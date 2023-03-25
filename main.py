@@ -27,7 +27,7 @@ class SnifferThread(QtCore.QThread):
         self.exit()
 
     def pause_sniff(self):
-        self.paused = False
+        self.exit()
 
     def run(self):
         sniff(prn=self.sniff_analysis, iface=None, filter='IP', store=0)
@@ -83,20 +83,21 @@ class Mainwindow(QtWidgets.QWidget):
         self.analysis_layout = QtWidgets.QHBoxLayout()
 
         # 创建树状图
-        tree = QtWidgets.QTreeWidget()
-        tree.setHeaderLabels(['Name', 'Size', 'Type'])
+        self.tree = QtWidgets.QTreeWidget()
+        self.tree.setHeaderLabels(['Name', 'Size', 'Type'])
         for i in range(2):
-            parent = QtWidgets.QTreeWidgetItem(tree, ['Folder %d' % i, '', 'Folder'])
+            parent = QtWidgets.QTreeWidgetItem(self.tree, ['Folder %d' % i, '', 'Folder'])
             for j in range(2):
                 child = QtWidgets.QTreeWidgetItem(parent, ['File %d' % j, '10 KB', 'File'])
 
-        tree.expandAll()
+        self.tree.expandAll()
 
         # 创建hexdump区域
-        text = QtWidgets.QTextEdit()
+        self.text = QtWidgets.QTextEdit()
+        self.text.setReadOnly(True)
 
-        self.analysis_layout.addWidget(tree)
-        self.analysis_layout.addWidget(text)
+        self.analysis_layout.addWidget(self.tree)
+        self.analysis_layout.addWidget(self.text)
 
 
         # 将布局添加到垂直布局中
@@ -114,6 +115,7 @@ class Mainwindow(QtWidgets.QWidget):
         self.start_button.clicked.connect(self.start_Action)
         self.pause_button.clicked.connect(self.pause_Action)
         self.stop_button.clicked.connect(self.stop_Action)
+        self.packet_list_table.itemClicked.connect(self.on_click_packet_list_tree)
 
 
     def start_Action(self):
@@ -190,7 +192,12 @@ class Mainwindow(QtWidgets.QWidget):
         self.packet_list_table.setItem(row_position, 5, QtWidgets.QTableWidgetItem(str(length)))
         self.packet_list_table.setItem(row_position, 6, QtWidgets.QTableWidgetItem(str(info)))
 
-    def on_click_packet_list_tree(event):
+    def on_click_packet_list_tree(self, item):
+        row = item.row()
+
+        number = self.packet_list_table.item(row, 0).text()
+        hextext = hexdump(sniff_array[int(number)],  dump=True)
+        self.text.setText(hextext)
         return
 
 # 按间距中的绿色按钮以运行脚本。
