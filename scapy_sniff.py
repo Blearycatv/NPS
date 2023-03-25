@@ -6,8 +6,15 @@ import time
 
 from scapy.all import *
 import time
+import threading
 
-global pcapdata
+stop_sniff_event = threading.Event()
+pause_sniff_event = threading.Event()
+
+# 捕获总数
+sniff_count = 0
+# 所有捕获到的报文
+sniff_array = []
 
 pcapdata = {
         'number': 0,
@@ -21,7 +28,12 @@ pcapdata = {
         'info': None
     }
 
-def sniff_analysis():
+# 数据包捕获和显示
+def packet_producer():
+    sniff(prn=sniff_analysis, iface=None, filter='tcp', offline='wireshark.pcap', count=1)
+    return
+
+def sniff_analysis(packet):
     count = 2
 
     # now_time = datetime.now().strftime("%Y%m%d%H%M%S")
@@ -29,34 +41,30 @@ def sniff_analysis():
     # # filter = 'tcp.port == 2222'
     # o_open_file = PcapWriter(filename, append=True)
 
-    def callback(packet):
+    global pcapdata, sniff_count, sniff_array
 
-        global pcapdata
+    # if (pcapdata['number'] == 0):
+    #     pcapdata['startime'] = time.time()
 
-        if (pcapdata['number'] == 0):
-            pcapdata['startime'] = time.time()
+    sniff_count = sniff_count + 1
+    sniff_array.append(packet)
+    # pcapdata['number'] = pcapdata['number'] + 1
+    # pcapdata['endtime'] = time.time()
+    # pcapdata['_time'] = pcapdata['endtime'] - pcapdata['startime']
+    # pcapdata['source'] = packet['IP'].src
+    # pcapdata['destination'] = packet['IP'].dst
+    # pcapdata['protocol'] = packet['IP'].proto
+    # pcapdata['len'] = len(packet)
+    # pcapdata['info'] = packet['Raw'].load
 
-        pcapdata['number'] = pcapdata['number'] + 1
-        pcapdata['endtime'] = time.time()
-        pcapdata['_time'] = pcapdata['endtime'] - pcapdata['startime']
-        pcapdata['source'] = packet['IP'].src
-        pcapdata['destination'] = packet['IP'].dst
-        pcapdata['protocol'] = packet['IP'].proto
-        pcapdata['len'] = len(packet)
-        pcapdata['info'] = packet[Raw].load
+    print(packet)
+    # print(packet['IP'].proto)
 
-        print(pcapdata)
-        print(packet['IP'].proto)
-
-        # packet.show()
-        # o_open_file.write(packet)
-        # print(type(packet))
-
-    dpkt_input = sniff(offline='wireshark.pcap', count=count, filter=None, prn=callback)
-    print(dpkt_input)
-
+    # packet.show()
+    # o_open_file.write(packet)
+    # print(type(packet))
 
 if __name__ == "__main__":
-    sniff_analysis()
-    # data = sniff(iface="Intel(R) Ethernet Connection (16) I219-LM", count=1, filter='tcp', prn=callback, )
-    # print(data)
+    # packet_producer()
+    data = sniff(iface="Intel(R) Ethernet Connection (16) I219-LM", count=1, filter='tcp', prn=sniff_analysis)
+    print(data)
