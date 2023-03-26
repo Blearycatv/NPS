@@ -1,5 +1,5 @@
 # -*- coding:utf-8 -*-
-# @FileName  :scapy_sniff.py
+# @FileName  :data_analysis.py
 # @Time      :2023/3/20 13:40
 # @Author    :Blearycatv
 
@@ -19,18 +19,28 @@ class SnifferThread(QtCore.QThread):
     def __init__(self):
         super().__init__()
         self.paused = False
+        self.filter = ''
+        self.iface = None
 
-    def start_sniff(self):
+    def start_sniff(self, filter, iface):
+        self.filter = filter
+
+        if iface == '':
+            self.iface = None
+        else:
+            self.iface = iface
         self.start()
 
     def stop_sniff(self):
-        self.exit()
+        self.filter = ''
+        self.iface = None
+        self.terminate()
 
     def pause_sniff(self):
         self.exit()
 
     def run(self):
-        sniff(prn=self.sniff_analysis, iface=None, filter='IP', store=0)
+        sniff(prn=self.sniff_analysis, iface=self.iface, filter=self.filter, store=0)
 
     def sniff_analysis(self, packet):
         # now_time = datetime.now().strftime("%Y%m%d%H%M%S")
@@ -59,12 +69,15 @@ class Mainwindow(QtWidgets.QWidget):
         self.start_button = QtWidgets.QPushButton("开始")
         self.pause_button = QtWidgets.QPushButton("暂停")
         self.stop_button = QtWidgets.QPushButton("停止")
+        self.netcard = QtWidgets.QComboBox()
+        self.netcard.addItems([''] + self.get_NIC())
         self.protocol_box = QtWidgets.QComboBox()
-        self.protocol_box.addItems(['HTTP', 'TCP', 'UDP', 'IPv4', 'IPv6', 'ICMP'])
+        self.protocol_box.addItems(['', 'tcp', 'udp', 'ip', 'ip6', 'icmp', 'arp'])
 
         self.button_layout.addWidget(self.start_button)
         self.button_layout.addWidget(self.pause_button)
         self.button_layout.addWidget(self.stop_button)
+        self.button_layout.addWidget(self.netcard)
         self.button_layout.addWidget(self.protocol_box)
 
         # 创建Pacp分析区域
@@ -84,13 +97,7 @@ class Mainwindow(QtWidgets.QWidget):
 
         # 创建树状图
         self.tree = QtWidgets.QTreeWidget()
-        self.tree.setHeaderLabels(['Name', 'Size', 'Type'])
-        for i in range(2):
-            parent = QtWidgets.QTreeWidgetItem(self.tree, ['Folder %d' % i, '', 'Folder'])
-            for j in range(2):
-                child = QtWidgets.QTreeWidgetItem(parent, ['File %d' % j, '10 KB', 'File'])
-
-        self.tree.expandAll()
+        self.tree.setHeaderHidden(True)
 
         # 创建hexdump区域
         self.text = QtWidgets.QTextEdit()
@@ -123,7 +130,13 @@ class Mainwindow(QtWidgets.QWidget):
         self.start_button.setDisabled(True)
         self.stop_button.setDisabled(False)
         self.pause_button.setDisabled(False)
-        self.sniffer_thread.start_sniff()
+        self.netcard.setDisabled(True)
+        self.protocol_box.setDisabled(True)
+
+        filter_data = self.protocol_box.currentText()
+        netcard_data = self.netcard.currentText()
+
+        self.sniffer_thread.start_sniff(filter=filter_data, iface=netcard_data)
 
     def pause_Action(self):
         self.stop_sniffing_flag = True
@@ -138,14 +151,18 @@ class Mainwindow(QtWidgets.QWidget):
         self.stop_sniffing_flag = True
         self.start_button.setDisabled(False)
         self.stop_button.setDisabled(True)
+        self.netcard.setDisabled(False)
+        self.protocol_box.setDisabled(False)
         self.sniffer_thread.stop_sniff()
 
         self.packet_list_table.setRowCount(0)
-        sniff_count = -1
+        sniff_count = 0
         sniff_array = []
+
         return
 
     def add_packet_to_table(self, packet):
+
         if self.stop_sniffing_flag:
             return
 
@@ -154,14 +171,15 @@ class Mainwindow(QtWidgets.QWidget):
         sniff_count = sniff_count + 1
         sniff_array.append(packet)
 
-        proto_names = ['TCP', 'UDP', 'ICMP', 'IPv6', 'IP', 'ARP', 'Ether', 'Unknown']
+        proto_names = ['TCP', 'UDP', 'ICMP', 'IPv6', 'IP', 'ARP',  'Ether', 'Unknown']
         proto = ''
         try:
             for pn in proto_names:
                 if pn in packet:
                     proto = pn
                     break
-            if proto == 'ARP' or proto == 'Ether':
+
+            if proto == 'ARP' or proto ==  'Ether':
                 src = packet.src
                 dst = packet.dst
             else:
@@ -171,8 +189,10 @@ class Mainwindow(QtWidgets.QWidget):
                 elif 'IP' in packet:
                     src = packet[IP].src
                     dst = packet[IP].dst
+
             length = len(packet)
             info = packet.summary()
+
         except:
             src = '0.0.0.0'
             dst = '0.0.0.0'
@@ -195,10 +215,41 @@ class Mainwindow(QtWidgets.QWidget):
     def on_click_packet_list_tree(self, item):
         row = item.row()
 
-        number = self.packet_list_table.item(row, 0).text()
-        hextext = hexdump(sniff_array[int(number)],  dump=True)
+        number = int(self.packet_list_table.item(row, 0).text()) - 1
+        packet_data = sniff_array[int(number)]
+
+        hextext = hexdump(packet_data,  dump=True)
         self.text.setText(hextext)
+        self.display_in_tree(packet_data)
         return
+
+    def display_in_tree(self, packet):
+
+        self.tree.clear()
+
+        lines = (packet.show(dump=True)).split('\n')
+        last_tree_entry = None
+        for line in lines:
+            if line.startswith('#'):
+                line = line.strip('# ')
+                last_tree_entry = QtWidgets.QTreeWidgetItem(self.tree)
+                last_tree_entry.setText(0, line)
+            else:
+                child = QtWidgets.QTreeWidgetItem(last_tree_entry)
+                child.setText(0, line)
+
+
+
+        return
+
+    def get_NIC(self):
+        nic_dic = get_windows_if_list()
+        nic = []
+
+        for i in nic_dic:
+            nic.append(i['description'])
+
+        return nic
 
 # 按间距中的绿色按钮以运行脚本。
 if __name__ == '__main__':

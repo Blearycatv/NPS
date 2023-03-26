@@ -10,14 +10,14 @@ def ip_analysis(IP_data):
 
 def get_NIC():
     nic_dic = get_windows_if_list()
-    nic_key = nic_dic[0].keys()
+    nic = []
 
     for i in nic_dic:
-        print(i['description'])
+        nic.append(i['description'])
 
-    print(nic_key)
+    return nic
 
 
 if __name__ == "__main__":
-    get_NIC()
+    print(get_NIC())
     run_code = 0
