@@ -7,7 +7,7 @@ import sys
 from PyQt5 import QtCore, QtWidgets, QtGui
 from PyQt5.QtWidgets import QMainWindow, QApplication
 from scapy.all import *
-# from scapy_sniff import *
+from data_analysis import IPv4_Packet, Ethernet_Packet, UDP_Packet, TCP_Packet,IPv6_Packet,ARP_Packet
 
 # 捕获总数
 sniff_count = 0
@@ -227,7 +227,65 @@ class Mainwindow(QtWidgets.QWidget):
             if line.startswith('#'):
                 line = line.strip('# ')
                 last_tree_entry = QtWidgets.QTreeWidgetItem(self.tree)
-                last_tree_entry.setText(0, line)
+
+                if line == '[ Ethernet ]':
+                    last_tree_entry.setText(0, '以太网帧：')
+                    Ethdata = Ethernet_Packet(packet)
+                    for key in Ethdata.keys():
+                        strdata = str(key) +': ' + str(Ethdata[key])
+                        child = QtWidgets.QTreeWidgetItem(last_tree_entry)
+                        child.setText(0, strdata)
+                    last_tree_entry = None
+                    continue
+                elif line == '[ IP ]':
+                    last_tree_entry.setText(0, 'IP数据帧：')
+                    IPdata = IPv4_Packet(packet)
+                    for key in IPdata.keys():
+                        strdata = str(key) +': ' + str(IPdata[key])
+                        child = QtWidgets.QTreeWidgetItem(last_tree_entry)
+                        child.setText(0, strdata)
+                    last_tree_entry = None
+                    continue
+
+                elif line == '[ UDP ]':
+                    last_tree_entry.setText(0, 'UDP数据帧：')
+                    UDPdata = UDP_Packet(packet)
+                    for key in UDPdata.keys():
+                        strdata = str(key) +': ' + str(UDPdata[key])
+                        child = QtWidgets.QTreeWidgetItem(last_tree_entry)
+                        child.setText(0, strdata)
+                    last_tree_entry = None
+                    continue
+                elif line == '[ TCP ]':
+                    last_tree_entry.setText(0, 'TCP数据帧：')
+                    TCPdata = TCP_Packet(packet)
+                    for key in TCPdata.keys():
+                        strdata = str(key) +': ' + str(TCPdata[key])
+                        child = QtWidgets.QTreeWidgetItem(last_tree_entry)
+                        child.setText(0, strdata)
+                    last_tree_entry = None
+                    continue
+                elif line == '[ IPv6 ]':
+                    last_tree_entry.setText(0, 'IPv6数据帧：')
+                    IP6data = IPv6_Packet(packet)
+                    for key in IP6data.keys():
+                        strdata = str(key) +': ' + str(IP6data[key])
+                        child = QtWidgets.QTreeWidgetItem(last_tree_entry)
+                        child.setText(0, strdata)
+                    last_tree_entry = None
+                    continue
+                elif line == '[ ARP ]':
+                    last_tree_entry.setText(0, 'ARP数据帧：')
+                    ARPdata = ARP_Packet(packet)
+                    for key in ARPdata.keys():
+                        strdata = str(key) +': ' + str(ARPdata[key])
+                        child = QtWidgets.QTreeWidgetItem(last_tree_entry)
+                        child.setText(0, strdata)
+                    last_tree_entry = None
+                    continue
+                else:
+                    last_tree_entry.setText(0, line)
+
             else:
                 child = QtWidgets.QTreeWidgetItem(last_tree_entry)
                 child.setText(0, line)

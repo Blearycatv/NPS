@@ -11,188 +11,139 @@ import binascii
 
 
 # IP数据帧分析
-class IPv4_Packet:
-    def __init__(self, packet):
-        # 4b 版本号
-        self.version = packet.version
-        # 4b 头部长度
-        self.ihl = packet.ihl
-        # 8b 服务类型
-        self.tos = packet.tos
-        # 16b 总长度
-        self.total_length = packet.len
-        # 16b ID
-        self.id = packet.id
-        self.ttl = packet.ttl
-        self.protocol = packet.proto
-        self.src_ip = packet.src
-        self.dst_ip = packet.dst
-        self.flags = packet.flags
-        self.frag = packet.frag
-        self.chksum = packet.chksum
-        self.payload = packet.payload
+def IPv4_Packet(packet):
+    IPDatagram = {}
+    packet = bytes(packet['IP'])
+    # 根据RFC791协议对数据包进行解析
+    IPDatagram['version'] = packet[0] >> 4
+    IPDatagram['headLength'] = packet[0] & 0x0f
+    IPDatagram['serviceType'] = packet[1]
+    IPDatagram['totalLength'] = (packet[2] << 8) + packet[3]
+    IPDatagram['identification'] = (packet[4] << 8) + packet[5]
+    IPDatagram['flag'] = packet[6] >> 5
+    IPDatagram['moreFragment'] = IPDatagram['flag'] & 1
+    IPDatagram['dontFragment'] = (IPDatagram['flag'] >> 1) & 1
+    IPDatagram['fragmentOffset'] = ((packet[6] & 0x1f) << 8) + packet[7]
+    IPDatagram['TTL'] = packet[8]
+    IPDatagram['protocol'] = packet[9]
+    IPDatagram['headerCheckSum'] = (packet[10] << 8) + packet[11]
+    # 源IP地址和目的IP地址都按照IP地址的格式用字符串存储
+    IPDatagram['sourceAddress'] = "%d.%d.%d.%d" % (packet[12], packet[13], packet[14], packet[15])
+    IPDatagram['destinationAddress'] = "%d.%d.%d.%d" % (packet[16], packet[17], packet[18], packet[19])
+    # 根据数据包中头部长度确定是否有选项，如果有则添加至option列表中
+    IPDatagram['options'] = []
+    if IPDatagram['headLength'] > 5:
+        step = 5
+        while step < IPDatagram['headLength']:
+            IPDatagram['options'].append(packet[step * 4])
+            IPDatagram['options'].append(packet[step * 4 + 1])
+            IPDatagram['options'].append(packet[step * 4 + 2])
+            IPDatagram['options'].append(packet[step * 4 + 3])
+            step += 1
+    # 根据数据包中的总长度将数据部分添加至data列表中
+    IPDatagram['data'] = ''
+    step = IPDatagram['headLength'] * 4
+    while step < IPDatagram['totalLength']:
+        IPDatagram['data'] = IPDatagram['data'] + str(packet[step])
+        step += 1
+    # 返回储存有数据包数据的字典
+    return IPDatagram
 
-    def get_version(self):
-        return f"IP Version: {self.version}"
+def Ethernet_Packet(packet):
 
-    def get_ihl(self):
-        return f"IP Header Length: {self.ihl} bytes"
+    EthDatagram = {}
+    packet = bytes(packet['Ethernet'])
 
-    def get_tos(self):
-        return f"Type of Service: {self.tos}"
+    EthDatagram['sourceAddress'] = "%d.%d.%d.%d.%d.%d" % (packet[0], packet[1], packet[2], packet[3], packet[4], packet[5])
+    EthDatagram['destinationAddress'] = "%d.%d.%d.%d.%d.%d" % (packet[6], packet[7], packet[8], packet[9], packet[10], packet[11])
+    EthDatagram['type'] = packet[12] << 8 | packet[13]
 
-    def get_ttl(self):
-        return f"Time to Live: {self.ttl}"
+    return EthDatagram
+def UDP_Packet(packet):
+    UDPDatagram = {}
+    packet = bytes(packet['UDP'])
 
-    def get_protocol(self):
-        return f"Protocol: {self.protocol}"
+    UDPDatagram['SourcePort'] = packet[0] << 8 | packet[1]
+    UDPDatagram['DestinationPort'] = packet[2] << 8 | packet[3]
+    UDPDatagram['length'] = packet[4]* 256 + packet[5]
+    UDPDatagram['Chexksum'] = packet[6] << 8 | packet[7]
+    UDPDatagram['data'] = ''
+    step = 9
+    while step < UDPDatagram['length']:
+        UDPDatagram['data'] = UDPDatagram['data'] + str(packet[step])
+        step += 1
 
-    def get_src_ip(self):
-        return f"Source IP Address: {self.src_ip}"
+    return UDPDatagram
+def IPv6_Packet(packet):
+    IPv6Datagram = {}
+    packet = bytes(packet['IPv6'])
 
-    def get_dst_ip(self):
-        return f"Destination IP Address: {self.dst_ip}"
+    IPv6Datagram['Version'] = packet[0] >> 4
+    IPv6Datagram['TrafficClass'] = (packet[0] & 0x0F) << 4 | (packet[1] >> 4)
+    IPv6Datagram['FlowLabel'] = (packet[1] & 0x0F) << 16 | packet[2] << 8 | packet[3]
+    IPv6Datagram['PayloadLength'] = packet[4] << 8 | packet[5]
+    IPv6Datagram['NextHeader'] = packet[6]
+    IPv6Datagram['HopLimit'] = packet[7]
+    IPv6Datagram['SourceAddress'] = ':'.join('{:02x}'.format(packet[i:i+2][0]) + '{:02x}'.format(packet[i:i+2][1]) for i in range(8, 24, 2))
+    IPv6Datagram['DestinationAddress'] = ':'.join('{:02x}'.format(packet[i:i+2][0]) + '{:02x}'.format(packet[i:i+2][1]) for i in range(24, 40, 2))
+    IPv6Datagram['Payload'] = packet[40:]
 
-    def get_total_length(self):
-        return f"Total Length: {self.total_length} bytes"
+    return IPv6Datagram
 
-    def get_id(self):
-        return f"Identification: {self.id}"
 
-    def get_flags(self):
-        return f"Flags: {self.flags}"
+def TCP_Packet(packet):
+    TCPDatagram = {}
+    packet = bytes(packet['TCP'])
 
-    def get_frag(self):
-        return f"Fragment Offset: {self.frag}"
+    TCPDatagram['SourcePort'] = packet[0] << 8 | packet[1]
+    TCPDatagram['DestinationPort'] = packet[2] << 8 | packet[3]
+    TCPDatagram['SequenceNumber'] = packet[4] << 24 | packet[5] << 16 | packet[6] << 8 | packet[7]
+    TCPDatagram['AcknowledgmentNumber'] = packet[8] << 24 | packet[9] << 16 | packet[10] << 8 | packet[11]
+    TCPDatagram['DataOffset'] = packet[12] >> 4
+    TCPDatagram['Reserved'] = (packet[12] & 0x0F) >> 1
+    TCPDatagram['NS'] = packet[12] & 0x01
+    TCPDatagram['CWR'] = packet[13] & 0x80
+    TCPDatagram['ECE'] = packet[13] & 0x40
+    TCPDatagram['URG'] = packet[13] & 0x20
+    TCPDatagram['ACK'] = packet[13] & 0x10
+    TCPDatagram['PSH'] = packet[13] & 0x08
+    TCPDatagram['RST'] = packet[13] & 0x04
+    TCPDatagram['SYN'] = packet[13] & 0x02
+    TCPDatagram['FIN'] = packet[13] & 0x01
+    TCPDatagram['Window'] = packet[14] << 8 | packet[15]
+    TCPDatagram['Checksum'] = packet[16] << 8 | packet[17]
+    TCPDatagram['UrgentPointer'] = packet[18] << 8 | packet[19]
+    TCPDatagram['Options'] = ''
+    step = 20
+    while step < TCPDatagram['DataOffset'] * 4:
+        TCPDatagram['Options'] = TCPDatagram['Options'] + str(packet[step])
+        step += 1
+    TCPDatagram['Data'] = ''
+    while step < len(packet):
+        TCPDatagram['Data'] = TCPDatagram['Data'] + str(packet[step])
+        step += 1
 
-    def get_chksum(self):
-        return f"Header Checksum: {hex(self.chksum)}"
+    return TCPDatagram
 
-    def get_payload(self):
-        return f"Payload: {self.payload.hex()}"
+def ARP_Packet(packet):
+    ARPDatagram = {}
+    packet = bytes(packet['ARP'])
 
-    def __str__(self):
-        return self.payload.hex()
+    ARPDatagram['HardwareType'] = packet[0] << 8 | packet[1]
+    ARPDatagram['ProtocolType'] = packet[2] << 8 | packet[3]
+    ARPDatagram['HardwareSize'] = packet[4]
+    ARPDatagram['ProtocolSize'] = packet[5]
+    ARPDatagram['Opcode'] = packet[6] << 8 | packet[7]
+    ARPDatagram['SenderMACAddress'] = ':'.join('{:02x}'.format(packet[i]) for i in range(8, 14))
+    ARPDatagram['SenderIPAddress'] = '.'.join(str(packet[i]) for i in range(14, 18))
+    ARPDatagram['TargetMACAddress'] = ':'.join('{:02x}'.format(packet[i]) for i in range(18, 24))
+    ARPDatagram['TargetIPAddress'] = '.'.join(str(packet[i]) for i in range(24, 28))
 
-class Ethernet_Packet:
-    def __init__(self, packet):
-        # 前六个字节
-        self.dst_mac = packet.dst
-        # 7-12字节
-        self.src_mac = packet.src
-        # 13-14字节
-        if packet.type == 0x0800:
-            self.ethertype = 'IP'
-        elif packet.type == 0x0806:
-            self.ethertype = 'ARP'
-        elif packet.type == 0x86DD:
-            self.ethertype = 'IPv6'
-        else:
-            self.ethertype = 'Unkonw'
-
-    def print_dst_mac(self):
-        return f"Destination MAC Address: {self.dst_mac}"
-
-    def print_src_mac(self):
-        return f"Source MAC Address: {self.src_mac}"
-
-    def print_ethertype(self):
-        return f"EtherType: {self.ethertype}"
-
-class UDP_Packet:
-    def __init__(self, frame_str):
-        frame = Ether(frame_str)
-        self.src_port = frame.payload.sport
-        self.dst_port = frame.payload.dport
-        self.length = frame.payload.len
-        self.checksum = frame.payload.chksum
-        self.payload = frame.payload.payload
-
-    def print_src_port(self):
-        return f"Source Port: {self.src_port}"
-
-    def print_dst_port(self):
-        return f"Destination Port: {self.dst_port}"
-
-    def print_length(self):
-        return f"Length: {self.length}"
-
-    def print_checksum(self):
-        return f"Checksum: {hex(self.checksum)}"
-
-    def print_payload(self):
-        return f"Payload: {self.payload.hex()}"
-
-    def __str__(self):
-        return self.payload.hex()
-
-class IPv6_Packet:
-    def __init__(self, packet):
-        self.version = packet.version
-        self.traffic_class = packet.tc
-        self.flow_label = packet.fl
-        self.payload_length = packet.plen
-        self.next_header = packet.nh
-        self.hop_limit = packet.hlim
-        self.source_address = packet.src
-        self.destination_address = packet.dst
-
-class TCP_Packet:
-    def __init__(self, packet_str):
-        packet = TCP(packet_str)
-        self.src_port = packet.sport
-        self.dst_port = packet.dport
-        self.seq_num = packet.seq
-        self.ack_num = packet.ack
-        self.header_len = packet.dataofs * 4
-        self.flags = packet.flags
-        self.window_size = packet.window
-        self.checksum = packet.chksum
-        self.urgent_pointer = packet.urgptr
-        self.payload = packet.payload
-
-    def get_src_port(self):
-        return self.src_port
-
-    def get_dst_port(self):
-        return self.dst_port
-
-    def get_seq_num(self):
-        return self.seq_num
-
-    def get_ack_num(self):
-        return self.ack_num
-
-    def get_header_len(self):
-        return self.header_len
-
-    def get_flags(self):
-        return self.flags
-
-    def get_window_size(self):
-        return self.window_size
-
-    def get_checksum(self):
-        return self.checksum
-
-    def get_urgent_pointer(self):
-        return self.urgent_pointer
-
-    def get_payload(self):
-        return self.payload
-
-    def __str__(self):
-        return self.payload.hex()
-
+    return ARPDatagram
 
 
 
 if __name__ == "__main__":
-
-    def callback(packet):
-        ether = Ethernet_Packet(packet['Ether'])
-
-        print(ether.ethertype)
-
-    packet = sniff(offline='wireshark.pcap', count=1, prn=callback)
+    packets = sniff(count=1, filter='arp', prn=ARP_Packet)
+    packets[0].show()
 
