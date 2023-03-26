@@ -196,6 +196,3 @@ if __name__ == "__main__":
 
     packet = sniff(offline='wireshark.pcap', count=1, prn=callback)
 
-
-    # packet_producer()
-
