@@ -43,13 +43,7 @@ class SnifferThread(QtCore.QThread):
         sniff(prn=self.sniff_analysis, iface=self.iface, filter=self.filter, store=0)
 
     def sniff_analysis(self, packet):
-        # now_time = datetime.now().strftime("%Y%m%d%H%M%S")
-        # filename = "./email_dns_data_{0}.pcap".format(now_time)
-        # # filter = 'tcp.port == 2222'
-        # o_open_file = PcapWriter(filename, append=True)
         self.packet_received.emit(packet)
-        # packet.show()
-        # o_open_file.write(packet)
 
 
 class Mainwindow(QtWidgets.QWidget):
@@ -237,10 +231,6 @@ class Mainwindow(QtWidgets.QWidget):
             else:
                 child = QtWidgets.QTreeWidgetItem(last_tree_entry)
                 child.setText(0, line)
-
-
-
-        return
 
     def get_NIC(self):
         nic_dic = get_windows_if_list()
